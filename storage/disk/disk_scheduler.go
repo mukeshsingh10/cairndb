@@ -30,7 +30,7 @@ func NewDiskRequest(isWrite bool, pageID common.PageID, data []byte) *DiskReques
 		IsWrite: isWrite,
 		PageID:  pageID,
 		Data:    data,
-		done:    make(chan error),
+		done:    make(chan error, 1),
 	}
 }
 
@@ -75,6 +75,8 @@ func (s *DiskScheduler) Schedule(r *DiskRequest) error {
 	return nil
 }
 
+// Close stops accepting requests, finishes everything already queued, and
+// stops the worker. It does not close the DiskManager.
 func (s *DiskScheduler) Close() {
 	s.mu.Lock()
 	if s.closed {
@@ -88,6 +90,7 @@ func (s *DiskScheduler) Close() {
 }
 
 func (s *DiskScheduler) worker() {
+	defer s.wg.Done()
 	for r := range s.queue {
 		var err error
 		if r.IsWrite {
